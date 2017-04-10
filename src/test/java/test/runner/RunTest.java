@@ -1,4 +1,4 @@
-package solutions.heavywater.test.runner;
+package test.runner;
 
 import org.junit.runner.RunWith;
 import cucumber.api.CucumberOptions;
