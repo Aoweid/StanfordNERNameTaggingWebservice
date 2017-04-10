@@ -1,0 +1,354 @@
+{
+	"AWSTemplateFormatVersion" : "2010-09-09",
+	"Description" : "This template Launches 1 instance : StanfordNERNameTaggingWebservice",
+	"Parameters" : {
+         "Environment" : {
+        "Description" : "Whether the environment is acceptance, prod, integration, exploratory",
+         "Type" : "String", 
+          "Default" : "acceptance"
+     }, 
+   "RestApiId" : {
+       "Description" : "API ID",
+         "Type" : "String", 
+          "Default" : "mgnrl9129c"
+     }, 
+      "RestApiRootResourceId" : {
+       "Description" : "Root resource ID of the API",
+         "Type" : "String", 
+          "Default" : "lblhuge6x0"
+    },
+		"KeyPairName" : {
+			"Description" : "Public/private key pairs allow you to securely connect to your instance after it launches",
+			"Type" : "String",
+			"Default" : ""
+		},
+		"AmiId" : {
+			"Description" : "Amazon AMI",
+			"Type" : "String",
+			"Default" : "ami-1ecae776"
+		},
+		"WEBAZ1subnet" : {
+			"Description" : "Amazon Subnet",
+			"Type" : "String",
+			"Default" : ""
+		},
+		"ExternalELBAZ1subnet" : {
+			"Description" : "Amazon external ELB Subnet",
+			"Type" : "String",
+			"Default" : ""
+		},
+		"WEBsecuritygroup" : {
+			"Description" : "Amazon SecurityGroup",
+			"Type" : "String",
+			"Default" : ""
+		},
+		"ExternalELBsecuritygroup" : {
+			"Description" : "Amazon SecurityGroup",
+			"Type" : "String",
+			"Default" : ""
+		},
+		"IamInstanceProfile" : {
+			"Description" : "Amazon IamInstanceProfile",
+			"Type" : "String",
+			"Default" : ""
+		},
+		"InstanceType" : {
+			"Description" : "Amazon EC2 instance type for the 1st HWNode",
+			"Type" : "String",
+			"Default" : "m4.large"
+		},
+		"BucketName" : {
+			"Description" : "Amazon EC2 instance type for the 1st HWNode",
+			"Type" : "String",
+			"Default" : "tempjars"
+		},
+		"APPAZ1subnet" : {
+			"Description" : "Amazon Subnet",
+			"Type" : "String",
+			"Default" : ""
+		},
+		"AppSecuritygroup" : {
+			"Description" : "Amazon SecurityGroup",
+			"Type" : "String",
+			"Default" : ""
+		},
+		"SSLcert" : {
+			"Description" : "SSL certificate",
+			"Type" : "String",
+			"Default" : "arn:aws:acm:us-east-1:248409795601:certificate/5d458673-ad0d-4e55-9157-883cbe3d7e36"
+		},
+		"InternalELBsecuritygroup" : {
+			"Description" : "Amazon SecurityGroup",
+			"Type" : "String",
+			"Default" : ""
+		},
+		"InternalELBAZ1subnet" : {
+			"Description" : "Amazon external ELB Subnet",
+			"Type" : "String",
+			"Default" : ""
+		},
+		"DMZAZ1subnet" : {
+			"Description" : "Amazon Subnet",
+			"Type" : "String",
+			"Default" : ""
+		},
+		"DMZsecuritygroup" : {
+			"Description" : "Amazon SecurityGroup",
+			"Type" : "String",
+			"Default" : ""
+		},
+		"InstanceCountMin" : {
+		    "Description" : "Min Number of server",
+			"Type" : "String",
+			"Default" : "8"
+		 },
+		"InstanceCountMax" : {
+		    "Description" : "Max Number of server",
+			"Type" : "String",
+			"Default" : "10"
+		 },
+		 "CpuUtilizationScaleUp" : {
+		    "Description" : "Metric CPUUtilization. Specify threshold value in %",
+			"Type" : "String",
+			"Default" : "80"
+		 },
+		 "CpuUtilizationScaleDown" : {
+		    "Description" : "Metric CPUUtilization. Specify threshold value in %",
+			"Type" : "String",
+			"Default" : "40"
+		 },
+		 "UnhealthyHostCount" : {
+		    "Description" : "Metric UnHealthyHostCount. Specify count",
+			"Type" : "String",
+			"Default" : "1"
+		 },
+		 "NotificationTopic" : {
+		    "Description" : "ARN of the SNS topic for notifications",
+			"Type" : "String",
+			"Default" : "arn:aws:sns:us-east-1:805220422390:InterviewAssistant"
+		 }
+	},
+	"Resources" : {
+		"StanfordNERNameTaggingWebserviceWaitCondition" : {
+			"Type" : "AWS::CloudFormation::WaitCondition",
+			"DependsOn" : "StanfordNERNameTaggingWebservice",
+			"Properties" : {
+				"Handle" : {
+					"Ref" : "StanfordNERNameTaggingWebserviceWaitHandle"
+				},
+				"Timeout" : "3600"
+			}
+		},
+		"StanfordNERNameTaggingWebserviceWaitHandle" : {
+			"Type" : "AWS::CloudFormation::WaitConditionHandle"
+		},
+		"StanfordNERNameTaggingWebservice" : {
+			"Type" : "AWS::AutoScaling::AutoScalingGroup",
+			"Properties" : {
+				"LaunchConfigurationName" : {
+					"Ref" : "StanfordNERNameTaggingWebserviceLaunchConfig"
+				},
+				"MinSize":{  
+					"Ref" : "InstanceCountMin"
+				},
+				"MaxSize":{  
+					"Ref" : "InstanceCountMax"
+				},
+				"LoadBalancerNames" : [ { "Ref" : "ElasticLoadBalancer" } ],
+				"Tags" : [{
+						"Key" : "Name",
+						"Value" : "StanfordNERNameTaggingWebservice",
+						"PropagateAtLaunch" : "true"
+				}],
+				"VPCZoneIdentifier" : [{
+						"Ref" : "WEBAZ1subnet"
+				}]
+			}
+		},
+		
+		"StanfordNERNameTaggingWebserviceLaunchConfig" : {
+			"Type" : "AWS::AutoScaling::LaunchConfiguration",
+			
+        	"Properties" : {
+				"KeyName" : {
+					"Ref" : "KeyPairName"
+				},
+				"ImageId" : {
+					"Ref" : "AmiId"
+				},
+				"SecurityGroups" : [{
+						"Ref" : "WEBsecuritygroup"
+				}],
+				"InstanceType" : {
+					"Ref" : "InstanceType"
+				},
+				"IamInstanceProfile" : {
+					"Ref" : "IamInstanceProfile"
+				},
+				"UserData" : {
+					"Fn::Base64" : {
+						"Fn::Join" : ["",
+							[
+								"#!/bin/bash \n",
+								"yum update -y \n",
+								"pip install boto3 \n",
+								"yum remove java-1.7.0-openjdk -y \n",
+								"yum install java-1.8.0 -y \n",
+								"/bin/mkdir -p /opt/heavywater/bin \n",
+								"/bin/mkdir -p /opt/heavywater/logs \n",
+								"/bin/mkdir -p /tmp/heavywater/inputfiles \n",
+								"/bin/mkdir -p /tmp/heavywater/outputfiles \n",
+								"var1='", {
+									"Ref" : "BucketName"
+								}, "' \n",
+                                "yum -y install python-pip \n",
+                                "yum -y install python-setuptools\n",
+                                "pip install boto3 \n",
+                                "/bin/mkdir -p /tmp/heavywater/scripts \n",
+                                "/usr/bin/aws s3 cp s3://$var1'/StanfordNERNameTaggingWebservice/apideploy.py' /tmp/heavywater/scripts/ --region us-east-1 \n",
+                                "echo '{\"API_ID\":\"'",{"Ref" : "RestApiId" },"'\",\"ENVIRONMENT\":\"'",{"Ref" : "Environment" },"'\"}' >/opt/heavywater/apivariables.txt \n",
+                                "/usr/bin/python /tmp/heavywater/scripts/apideploy.py '",{"Ref" : "RestApiId" },"' '",{"Ref" : "RestApiRootResourceId" },"' '",{"Ref" : "Environment" },"' '",{"Fn::GetAtt" : ["ElasticLoadBalancer", "DNSName"]},"'>/tmp/apideployLog.txt \n",
+                                "/usr/bin/aws s3 cp --recursive s3://$var1'/StanfordNERNameTaggingWebservice/classifiers' /opt/heavywater/bin/ --region us-east-1\n",
+                                "/usr/bin/aws s3 cp s3://$var1'/Installations/apache-tomcat-8.0.23.tar.gz' /opt/heavywater/ \n",
+								"/usr/bin/aws s3 cp s3://$var1'/Installations/aspectjweaver.jar' /opt/heavywater/bin/ \n",
+								"/bin/tar -xvf /opt/heavywater/apache-tomcat-8.0.23.tar.gz -C /opt/heavywater/ \n",
+								"/usr/bin/aws s3 cp s3://$var1'/StanfordNERNameTaggingWebservice/jars/StanfordNERNameTaggingWebservice.war' /opt/heavywater/apache-tomcat-8.0.23/webapps \n",
+								"/bin/sh /opt/heavywater/apache-tomcat-8.0.23/bin/startup.sh \n",
+								"/usr/bin/aws s3 cp s3://$var1'/Installations/CheckElbHealthCheck.py' /tmp/ \n",
+							    "/usr/bin/python /tmp/CheckElbHealthCheck.py ", { "Ref" : "ElasticLoadBalancer" }, " ", { "Ref" : "AWS::Region" }, "\n",
+								"/opt/aws/bin/cfn-signal -e 0 '", {
+									"Ref" : "StanfordNERNameTaggingWebserviceWaitHandle"
+								}, "'\n",
+								"echo '", {
+									"Ref" : "StanfordNERNameTaggingWebserviceWaitHandle"
+								}, "' > /tmp/cfnsignal_debug.txt\n"
+							]
+						]
+					}
+				}
+			}
+		},
+		"WebServerScaleUpPolicy" : {
+			"Type" : "AWS::AutoScaling::ScalingPolicy",
+			"Properties" : {
+				"AdjustmentType" : "ChangeInCapacity",
+				"AutoScalingGroupName" : { "Ref" : "StanfordNERNameTaggingWebservice" },
+				"Cooldown" : "60",
+				"ScalingAdjustment" : "1"
+			}
+		},
+		"WebServerScaleDownPolicy" : {
+			"Type" : "AWS::AutoScaling::ScalingPolicy",
+			"Properties" : {
+				"AdjustmentType" : "ChangeInCapacity",
+				"AutoScalingGroupName" : { "Ref" : "StanfordNERNameTaggingWebservice" },
+				"Cooldown" : "60",
+				"ScalingAdjustment" : "-1"
+			}
+		},
+		"CpuUtilizationAlarmLow": {
+			"Type": "AWS::CloudWatch::Alarm",
+			"Properties": {
+				"AlarmDescription": {
+					"Fn::Join" : ["", ["Scale-down if CPU < ", { "Ref" : "CpuUtilizationScaleDown" }, "% for 10 minutes"]]
+				},
+				"MetricName": "CPUUtilization",
+				"Namespace": "AWS/EC2",
+				"Statistic": "Average",
+				"Period": "300",
+				"EvaluationPeriods": "2",
+				"Threshold": { "Ref" : "CpuUtilizationScaleDown" },
+				"AlarmActions": [ { "Ref": "WebServerScaleDownPolicy" }, { "Ref" : "NotificationTopic" } ],
+				"Dimensions": [{
+					"Name": "AutoScalingGroupName",
+					"Value": { "Ref": "StanfordNERNameTaggingWebservice" }
+				}],
+				"ComparisonOperator": "LessThanThreshold"
+			}
+		},
+		"CpuUtilizationAlarmHigh": {
+			"Type": "AWS::CloudWatch::Alarm",
+			"Properties": {
+				"AlarmDescription": {
+					"Fn::Join" : ["", ["Scale-up if CPU > ", { "Ref" : "CpuUtilizationScaleUp" }, "% for 10 minutes"]]
+				},
+				"MetricName": "CPUUtilization",
+				"Namespace": "AWS/EC2",
+				"Statistic": "Average",
+				"Period": "300",
+				"EvaluationPeriods": "2",
+				"Threshold": { "Ref" : "CpuUtilizationScaleUp" },
+				"AlarmActions": [ { "Ref": "WebServerScaleUpPolicy" }, { "Ref" : "NotificationTopic" } ],
+				"Dimensions": [{
+					"Name": "AutoScalingGroupName",
+					"Value": { "Ref": "StanfordNERNameTaggingWebservice" }
+				}],
+				"ComparisonOperator": "GreaterThanThreshold"
+			}
+		},
+		"UnhealthyHostsDetected" : {
+			"Type" : "AWS::CloudWatch::Alarm",
+			"Properties" : {
+				"AlarmDescription": {
+					"Fn::Join" : ["", ["Cloudwatch alarm for ElasticLoadBalancer if UnHealthyHostCount >= ", { "Ref" : "UnhealthyHostCount" }, " for 1 minute"]]
+				},
+				"AlarmActions" : [  { "Ref" : "NotificationTopic" } ],
+				"OKActions" : [  { "Ref" : "NotificationTopic" } ],
+				"MetricName" : "UnHealthyHostCount",
+				"Namespace" : "AWS/ELB",
+				"Statistic" : "Sum",
+				"Period" : "60",
+				"EvaluationPeriods" : "1",
+				"Threshold" : { "Ref" : "UnhealthyHostCount" },
+				"ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+				"Dimensions" : [ {
+					"Name" : "LoadBalancerName",
+					"Value" : { "Ref" : "ElasticLoadBalancer" }
+				} ]
+			}
+		},
+		"ElasticLoadBalancer" : {
+			"Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+			"Properties" : {
+				"Subnets" : [{
+						"Ref" : "ExternalELBAZ1subnet"
+					}
+				],
+				"SecurityGroups" : [{
+						"Ref" : "ExternalELBsecuritygroup"
+					}
+				],
+				"Listeners" : [{
+                        "LoadBalancerPort" : "80",
+                        "InstancePort" : "8080",
+                        "Protocol" : "HTTP"
+                    }
+                ],
+				"HealthCheck" : {
+					"Target" : "HTTP:8080/",
+					"HealthyThreshold" : "3",
+					"UnhealthyThreshold" : "5",
+					"Interval" : "30",
+					"Timeout" : "5"
+				},
+				"ConnectionDrainingPolicy" : {
+					"Enabled" : "true",
+					"Timeout" : "300"
+				},
+				"ConnectionSettings" : {
+					"IdleTimeout" : "3600"
+				}
+			}
+		}
+	},
+	"Outputs" : {
+		"Url" : {
+		"Value" : {
+				"Fn::Join" : ["", ["http://", {
+							"Fn::GetAtt" : ["ElasticLoadBalancer", "DNSName"]
+						}, "/StanfordNERNameTaggingWebservice/rest/StanfordNERNameTaggingWebservice"]]
+			},
+			"Description" : "Url"
+		}
+	}
+}

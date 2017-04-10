@@ -1,0 +1,300 @@
+branchName="*/master"
+listViewName="StanfordNERNameTaggingWebservice"
+StanfordNERNameTaggingWebserviceCodeRepoUrl="https://github.com/Aoweid/StanfordNERWebservice.git"
+infraUrl="https://github.com/HeavyWater-Solutions/hw-infra.git"
+credentialsId="ac5cf87e-772b-4c6b-aeae-6f9263374fe5"
+pollSCMCron="H/2 * * * *"
+
+notificationEmailAddressList = 'notifications@heavywater.solutions'
+notificationEmailSubjectTemplate = '$PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS!'
+notificationEmailContentTemplate = """\$PROJECT_NAME - Build # \$BUILD_NUMBER - \$BUILD_STATUS:
+                                      Check console output at \$BUILD_URL to view the results."""
+
+jobName="StanfordNERNameTaggingWebservice-commit"
+buildNo="$BUILD_NUMBER";
+mavenJob(jobName) {
+
+	parameters {
+		stringParam('BRANCH_NAME', branchName, 'The branch name or tag that must be built')
+	}
+	scm {
+		git{
+			remote{
+				url(StanfordNERNameTaggingWebserviceCodeRepoUrl)
+				credentials(credentialsId)
+			}
+			branch(branchName)
+		}
+	}
+	wrappers{
+		colorizeOutput('xterm')
+
+	}
+	deliveryPipelineConfiguration("commit", jobName)
+	blockOnDownstreamProjects()
+	jdk("JDK_1.8")
+	triggers{
+		githubPush()
+		scm(pollSCMCron)
+	}
+	preBuildSteps{
+		environmentVariables{
+			env("FEATURE", "StanfordNERNameTaggingWebservice")
+			env("MASTER_BUILD_ID",buildNo)
+		}
+	}
+	postBuildSteps{
+		shell("mkdir -p jars \ncp target/*.war jars/")
+		shell('/usr/local/bin/aws s3 rm s3://tempjars/$FEATURE/ --recursive')
+		shell('/usr/bin/sudo python python.py StanfordNERNameTaggingWebservice')
+		shell('#!/bin/bash \n/usr/local/bin/aws s3 cp /var/lib/jenkins/jobs/StanfordNERNameTaggingWebservice-commit/workspace/apideploy.py s3://tempjars/StanfordNERNameTaggingWebservice/apideploy.py')
+		shell('#!/bin/bash \n/usr/local/bin/aws s3 cp /var/lib/jenkins/jobs/StanfordNERNameTaggingWebservice-commit/workspace/CFT/DEV/StanfordNERNameTaggingWebservice.template s3://hw-cftbucket/StanfordNERNameTaggingWebservice/StanfordNERNameTaggingWebservice.template')
+        shell('#!/bin/bash \n/usr/local/bin/aws s3 cp /var/lib/jenkins/jobs/StanfordNERNameTaggingWebservice-commit/workspace/CFT/MasterV1.json s3://hw-cftbucket/MasterV1.json')
+		shell('#!/bin/bash \n/usr/local/bin/aws s3 cp /var/lib/jenkins/jobs/StanfordNERNameTaggingWebservice-commit/workspace/CFT/DEV/StanfordNERNameTaggingWebservice.template s3://tempjars/StanfordNERNameTaggingWebservice/CFT/StanfordNERNameTaggingWebservice.template')
+		shell('#!/bin/bash \n/usr/local/bin/aws s3 cp /var/lib/jenkins/jobs/StanfordNERNameTaggingWebservice-commit/workspace/log.json s3://tempjars/StanfordNERNameTaggingWebservice/StanfordNERNameTaggingWebservice.json')
+		shell('#!/bin/bash \n/usr/local/bin/aws s3 cp --recursive /var/lib/jenkins/jobs/StanfordNERNameTaggingWebservice-commit/workspace/classifiers s3://tempjars/StanfordNERNameTaggingWebservice/classifiers')
+		}
+	rootPOM("pom.xml")
+	//goals("clean site verify cobertura:cobertura -Dtest=TestStanfordNERNameTaggingWebservice -Dcobertura.report.format=xml")
+	goals("clean site verify -DskipTests")
+	publishers {
+		//checkstyle("**/checkstyle-report.xml")
+		//cobertura('**/coverage.xml') {
+		//  onlyStable(true)
+		//  failNoReports(true)
+		//}
+		publishHtml {
+		  report('target/site') {
+			reportName('JavaNCSS Report')
+			reportFiles('javancss.html')
+			allowMissing(true)
+			keepAll(true)
+		  }
+		}
+		
+		s3('S3IAM'){
+			entry('jars/','tempjars/$FEATURE','us-east-1'){
+				storageClass('STANDARD')
+				noUploadOnFailure(true)
+			}
+		}
+		extendedEmail(notificationEmailAddressList,
+			notificationEmailSubjectTemplate,
+			notificationEmailContentTemplate) {
+		  trigger('Always')
+		}
+
+		downstreamParameterized {
+			trigger ('StanfordNERNameTaggingWebservice-provision-infra', 'SUCCESS'){
+				currentBuild()
+			}
+		  }
+
+	}
+}
+branchName="*/master"
+CftName="Master"
+jobName="StanfordNERNameTaggingWebservice-provision-infra"
+freeStyleJob(jobName){
+	parameters {
+		stringParam('BRANCH_NAME', branchName, 'The branch name or tag that must be built')
+		stringParam('MASTERCFT', CftName, 'The master CFT name')
+	}
+	scm {
+		git{
+			remote{
+				url(infraUrl)
+				credentials(credentialsId)
+			}
+			branch(branchName)
+		}
+	}
+	wrappers{
+		colorizeOutput('xterm')
+
+	}
+	deliveryPipelineConfiguration("acceptance", jobName)
+	blockOnDownstreamProjects()
+	
+	steps{
+		shell('echo '+buildNo)
+		shell('/usr/bin/python activityscript.py StanfordNERNameTaggingWebservice $MASTERCFT tempjars')
+		shell('/usr/bin/python CFTTEMPLATE/cft_cli.py acceptance_master_provision $MASTERCFT \n/usr/local/bin/aws s3 cp acceptance_master_provision.json s3://hw-developments/ --region us-east-1 \n/usr/local/bin/aws s3 cp acceptance_master_provision.properties s3://hw-developments/ --region us-east-1')
+		shell('env \naws s3 cp --recursive CFTTEMPLATE s3://hw-developments/StanfordNERNameTaggingWebservice/'+buildNo+' --region us-east-1 \naws s3 cp --recursive serverspec s3://hw-developments/StanfordNERNameTaggingWebservice/'+buildNo+' --region us-east-1 \naws s3 cp --recursive deploy_scripts s3://hw-developments/StanfordNERNameTaggingWebservice/'+buildNo+'/infratarget --region us-east-1 \naws s3 cp s3://hw-developments/acceptance_master_provision.properties .')
+		shell('/usr/bin/python CFTTEMPLATE/cft_cli.py acceptance-provision heavywater-StanfordNERNameTaggingWebservice \n/usr/local/bin/aws s3 cp acceptance-provision.json s3://hw-developments/StanfordNERNameTaggingWebservice/'+buildNo+'/ --region us-east-1 \n/usr/local/bin/aws s3 cp acceptance-provision.properties s3://hw-developments/StanfordNERNameTaggingWebservice/'+buildNo+'/ --region us-east-1 ')
+	}
+	publishers {
+		extendedEmail(notificationEmailAddressList,
+			notificationEmailSubjectTemplate,
+			notificationEmailContentTemplate) {
+		  trigger('Always')
+		}
+		downstreamParameterized {
+			trigger ('StanfordNERNameTaggingWebservice-validate-provisioned-infra', 'SUCCESS'){
+				currentBuild()
+			}
+		  }
+	}
+}
+
+jobName="StanfordNERNameTaggingWebservice-validate-provisioned-infra"
+freeStyleJob(jobName){
+	wrappers{
+		colorizeOutput('xterm')
+
+	}
+	deliveryPipelineConfiguration("acceptance", jobName)
+	blockOnDownstreamProjects()
+	
+	steps{
+		shell('echo '+jobName)
+		shell('#!/bin/bash \n/usr/local/bin/aws s3 cp s3://hw-developments/StanfordNERNameTaggingWebservice/'+buildNo+'/acceptance-provision.json serverspec/spec/localhost/ \n/usr/local/bin/aws s3 cp s3://hw-developments/StanfordNERNameTaggingWebservice/'+buildNo+'/acceptance-provision.properties serverspec/spec/localhost/')
+		shell('#!/bin/bash \ncd serverspec \necho "validate successfull" \n#echo $MASTER_BLD_NO > ./spec/localhost/properties.txt \nsudo sh validate_vpc.sh \n env')
+	}
+
+	publishers {
+		extendedEmail(notificationEmailAddressList,
+			notificationEmailSubjectTemplate,
+			notificationEmailContentTemplate) {
+			trigger('Always')
+		  }
+
+		downstreamParameterized {
+			trigger ('StanfordNERNameTaggingWebservice-execute-acceptance-tests', 'SUCCESS'){
+			  currentBuild()
+			}
+		  }
+	}
+}
+jobName="StanfordNERNameTaggingWebservice-execute-acceptance-tests"
+branchName="*/master"
+mavenJob(jobName){
+
+	parameters {
+		stringParam('BRANCH_NAME', branchName, 'The branch name or tag that must be built')
+	}
+
+	scm {
+		git{
+			remote{
+				url(StanfordNERNameTaggingWebserviceCodeRepoUrl)
+				credentials(credentialsId)
+			     }
+			branch(branchName)
+
+		}
+	}
+	wrappers{
+		colorizeOutput('xterm')
+
+	}
+	deliveryPipelineConfiguration("acceptance", jobName)
+	blockOnDownstreamProjects()
+	jdk("JDK_1.8")
+	preBuildSteps{
+		environmentVariables{
+			env("FEATURE", "StanfordNERNameTaggingWebservice")
+			env("MASTER_BUILD_ID",buildNo)
+		}
+	}
+	rootPOM("pom.xml")
+	goals("test -Dtest=RunTest")
+	
+	publishers {
+		extendedEmail(notificationEmailAddressList,
+			notificationEmailSubjectTemplate,
+			notificationEmailContentTemplate) {
+		  trigger('Always')
+		}
+		downstreamParameterized {
+			trigger ('StanfordNERNameTaggingWebservice-certify-app-and-infra', 'SUCCESS'){
+			  currentBuild()
+			}
+		  }
+	}
+}
+jobName="StanfordNERNameTaggingWebservice-certify-app-and-infra"
+freeStyleJob(jobName){
+	wrappers{
+		colorizeOutput('xterm')
+
+	}
+	deliveryPipelineConfiguration("acceptance", jobName)
+	blockOnDownstreamProjects()
+	steps{
+		shell('echo '+jobName)
+		shell('/usr/local/bin/aws s3 rm s3://acceptance-artifacts/StanfordNERNameTaggingWebservice/ --recursive')
+		shell('#!/bin/bash \n/usr/local/bin/aws s3 cp --recursive s3://tempjars/StanfordNERNameTaggingWebservice s3://acceptance-artifacts/StanfordNERNameTaggingWebservice')
+	}
+	publishers {
+		extendedEmail(notificationEmailAddressList,
+			notificationEmailSubjectTemplate,
+			notificationEmailContentTemplate) {
+		  trigger('Always')
+		}
+		downstreamParameterized {
+			trigger ('StanfordNERNameTaggingWebservice-acceptance-env-tear-down', 'SUCCESS'){
+			  currentBuild()
+			}
+		  }
+	}
+}
+branchName="*/master"
+jobName="StanfordNERNameTaggingWebservice-acceptance-env-tear-down"
+freeStyleJob(jobName){
+	parameters {
+		stringParam('BRANCH_NAME', branchName, 'The branch name or tag that must be built')
+	}
+	scm {
+		git{
+			remote{
+				url(infraUrl)
+				credentials(credentialsId)
+			}
+			branch(branchName)
+		}
+	}
+	wrappers{
+		colorizeOutput('xterm')
+
+	}
+	deliveryPipelineConfiguration("acceptance", jobName)
+		steps{
+		shell('/usr/bin/python delCFT.py heavywater-StanfordNERNameTaggingWebservice')
+
+	}
+	publishers {
+		extendedEmail(notificationEmailAddressList,
+			notificationEmailSubjectTemplate,
+			notificationEmailContentTemplate) {
+		  trigger('Always')
+		}
+	}
+}
+listView(listViewName){
+	description('All commit and acceptance jobs for ' + listViewName)
+	jobs{
+		regex('StanfordNERNameTaggingWebservice-.+')
+	}
+	columns {
+		status()
+		weather()
+		name()
+		lastSuccess()
+		lastFailure()
+		lastDuration()
+		buildButton()
+	}
+   }
+deliveryPipelineView('StanfordNERNameTaggingWebservice-pipeline'){
+	pipelineInstances(3)
+	showAggregatedPipeline(false)
+	columns(1)
+	sorting(Sorting.NONE)
+	updateInterval(2)
+	showAvatars(false)
+	showChangeLog(false)
+	pipelines {
+	  component('name', 'StanfordNERNameTaggingWebservice-commit')
+	}
+}

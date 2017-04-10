@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<!DOCTYPE module
+        PUBLIC "-//Puppy Crawl//DTD Check Configuration 1.2//EN"
+        "http://www.puppycrawl.com/dtds/configuration_1_2.dtd">
+
+<module name="Checker">
+
+	<module name="UniqueProperties">
+		<property name="fileExtensions" value="properties" />
+	</module>
+
+	<module name="TreeWalker">
+		<!-- check for deeper coding conventions -->
+		<module name="StringLiteralEquality" />
+		<module name="CovariantEquals" />
+		<module name="EqualsHashCode" />
+		<module name="ModifiedControlVariable" />
+		<module name="PackageDeclaration" />
+		<module name="PackageName">
+     		<property name="format" value="^solutions+(\.heavywater.[a-z]*.*)*$" />
+    	</module>
+		<!-- Checks for imports -->
+		<module name="AvoidStarImport" />
+		<module name="RedundantImport" />
+		<module name="UnusedImports" />
+
+		<!-- checks for unused variables -->
+		<module name="SuppressWarnings">
+			<property name="format" value="^unchecked$|^unused$" />
+			<property name="tokens"
+				value="
+          CLASS_DEF,INTERFACE_DEF,ENUM_DEF,
+          ANNOTATION_DEF,ANNOTATION_FIELD_DEF,
+          ENUM_CONSTANT_DEF,METHOD_DEF,CTOR_DEF
+          " />
+		</module>
+
+		<!-- //Different Empty Block -->
+
+		<module name="EmptyStatement" />
+
+		<module name="NeedBraces">
+			<property name="tokens" value="LITERAL_CASE, LITERAL_DEFAULT" />
+		</module>
+
+		<!-- <module name="EqualsAvoidNull" />
+
+		complexity thresholds on code -->
+		<module name="BooleanExpressionComplexity">
+			<property name="max" value="7" />
+		</module>
+		<module name="ClassDataAbstractionCoupling">
+			<property name="max" value="15" />
+		</module>
+		<module name="ClassFanOutComplexity">
+			<property name="max" value="30" />
+		</module>
+		<module name="NPathComplexity" />
+		<module name="CyclomaticComplexity" />
+
+	</module>
+
+</module>
